@@ -6,9 +6,7 @@
 <title>Muziekinstrumenten Memory</title>
 
 <style>
-*{
-    box-sizing:border-box;
-}
+*{ box-sizing:border-box; }
 
 body{
     margin:0;
@@ -19,9 +17,7 @@ body{
     overflow-x:hidden;
 }
 
-header{
-    padding:12px;
-}
+header{ padding:12px; }
 
 h1{
     margin:5px;
@@ -98,7 +94,8 @@ h1{
     display:block;
 }
 
-.card.hidden video{
+.card.hidden video,
+.card.hidden .video-controls{
     display:none;
 }
 
@@ -113,11 +110,26 @@ h1{
     cursor:default;
 }
 
-.card.matched video{
-    filter:saturate(1.2);
+.video-controls{
+    position:absolute;
+    bottom:8px;
+    left:50%;
+    transform:translateX(-50%);
+    z-index:10;
 }
 
-button{
+.video-controls button{
+    width:60px;
+    height:50px;
+    border:none;
+    border-radius:15px;
+    background:rgba(0,0,0,0.75);
+    color:white;
+    font-size:28px;
+    cursor:pointer;
+}
+
+button#restart{
     margin:8px;
     padding:10px 18px;
     border:none;
@@ -129,26 +141,20 @@ button{
     box-shadow:0 4px 10px rgba(0,0,0,0.2);
 }
 
-button:hover{
+button#restart:hover{
     background:#2563eb;
 }
 
 @media (max-width:900px){
-    #game{
-        grid-template-columns:repeat(3,1fr);
-    }
+    #game{ grid-template-columns:repeat(3,1fr); }
 }
 
 @media (max-width:600px){
-    #game{
-        grid-template-columns:repeat(2,1fr);
-    }
+    #game{ grid-template-columns:repeat(2,1fr); }
 }
 
 @media (min-width:1300px){
-    #game{
-        grid-template-columns:repeat(6,1fr);
-    }
+    #game{ grid-template-columns:repeat(6,1fr); }
 }
 </style>
 </head>
@@ -164,7 +170,7 @@ button:hover{
         <div class="scorebox">Tijd: <span id="timer">00:00</span></div>
     </div>
 
-    <button onclick="restartGame()">Opnieuw spelen</button>
+    <button id="restart" onclick="restartGame()">Opnieuw spelen</button>
 </header>
 
 <div id="game"></div>
@@ -209,7 +215,6 @@ let secondCard = null;
 let lockBoard = false;
 let turns = 0;
 let matches = 0;
-
 let seconds = 0;
 let timerStarted = false;
 let timerInterval = null;
@@ -246,15 +251,36 @@ function startGame(){
         video.playsInline = true;
         video.muted = false;
 
-        card.appendChild(video);
+        const controls = document.createElement("div");
+        controls.className = "video-controls";
 
-        card.addEventListener("click", () => flipCard(card, video));
+        const playPause = document.createElement("button");
+        playPause.textContent = "▶";
+
+        playPause.addEventListener("click", (event) => {
+            event.stopPropagation();
+
+            if(video.paused){
+                video.play();
+                playPause.textContent = "⏸";
+            }else{
+                video.pause();
+                playPause.textContent = "▶";
+            }
+        });
+
+        controls.appendChild(playPause);
+
+        card.appendChild(video);
+        card.appendChild(controls);
+
+        card.addEventListener("click", () => flipCard(card, video, playPause));
 
         game.appendChild(card);
     });
 }
 
-function flipCard(card, video){
+function flipCard(card, video, playPause){
     if(lockBoard) return;
     if(card === firstCard) return;
     if(card.classList.contains("matched")) return;
@@ -266,7 +292,12 @@ function flipCard(card, video){
 
     card.classList.remove("hidden");
     video.currentTime = 0;
-    video.play();
+
+    video.play().then(() => {
+        playPause.textContent = "⏸";
+    }).catch(() => {
+        playPause.textContent = "▶";
+    });
 
     if(!firstCard){
         firstCard = card;
@@ -287,6 +318,23 @@ function checkMatch(){
         firstCard.classList.add("matched");
         secondCard.classList.add("matched");
 
+        const video1 = firstCard.querySelector("video");
+        const video2 = secondCard.querySelector("video");
+        const button1 = firstCard.querySelector(".video-controls button");
+        const button2 = secondCard.querySelector(".video-controls button");
+
+        setTimeout(() => {
+            if(!video1.paused){
+                video1.pause();
+                button1.textContent = "▶";
+            }
+
+            if(!video2.paused){
+                video2.pause();
+                button2.textContent = "▶";
+            }
+        }, 5000);
+
         matches++;
         matchesText.textContent = matches;
 
@@ -303,15 +351,21 @@ function checkMatch(){
                 );
             }, 500);
         }
-    } else {
+    }else{
         lockBoard = true;
 
         setTimeout(() => {
             firstCard.classList.add("hidden");
             secondCard.classList.add("hidden");
 
-            firstCard.querySelector("video").pause();
-            secondCard.querySelector("video").pause();
+            const video1 = firstCard.querySelector("video");
+            const video2 = secondCard.querySelector("video");
+
+            video1.pause();
+            video2.pause();
+
+            firstCard.querySelector(".video-controls button").textContent = "▶";
+            secondCard.querySelector(".video-controls button").textContent = "▶";
 
             resetBoard();
         }, 1600);
